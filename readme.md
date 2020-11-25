@@ -8,7 +8,9 @@ Compares oldValue with newValue and returns a json tree of the changed values.
 go get -u github.com/ntbosscher/jsondiff
 ``` 
 
-## Example
+## Details
+
+[godoc.org/github.com/ntbosscher/jsondiff](https://godoc.org/github.com/ntbosscher/jsondiff)
 
 ```go
 func ExampleSimpleDiff() {
