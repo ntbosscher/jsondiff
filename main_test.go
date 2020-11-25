@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func ExampleSimpleDiff() {
+func Example_SimpleDiff() {
 	type Entity struct {
 		ID       int
 		Name     string
