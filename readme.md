@@ -34,11 +34,11 @@ func Example() {
         },
     }
 
-	diff, _ := Diff(a, b)
-	fmt.Println(string(diff))
-	// Output: {"ID":2,"Relation":{"ID":2,"Name":"asdf"}}
+    diff, _ := Diff(a, b)
+    fmt.Println(string(diff))
+    // Output: {"ID":2,"Relation":{"ID":2,"Name":"asdf"}}
 
-	diff, _ := DiffOldNew(A, B)
+    diff, _ := DiffOldNew(A, B)
     fmt.Println(string(diff))
     // Output: {"ID":{"New":2,"Old":1},"List":{"New":[1,2,3],"Old":[3,2,1]},"Relation":{"ID":{"New":2,"Old":3},"Name":{"New":"asdf","Old":"Ken"}}}
 
