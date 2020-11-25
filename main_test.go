@@ -271,3 +271,20 @@ func TestArrayChanged(t *testing.T) {
 		t.Error("invalid diff")
 	}
 }
+
+func TestDifferentKeys(t *testing.T) {
+	a := map[string]interface{}{}
+	b := map[string]interface{}{
+		"prop": 1,
+	}
+
+	diff, err := DiffOldNew(a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(diff) != `{"prop":{"New":1,"Old":null}}` {
+		t.Error(string(diff))
+		t.Error("invalid diff")
+	}
+}

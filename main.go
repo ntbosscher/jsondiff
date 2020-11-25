@@ -78,8 +78,10 @@ func calculateDiff(
 ) {
 
 	// iterate over keys
-	for k, oldProp := range oldMap {
+	for _, k := range allKeys(oldMap, newMap) {
+
 		newProp := newMap[k]
+		oldProp := oldMap[k]
 
 		// check if the values are maps themselves
 		mpOld, oldIsMap := oldProp.(map[string]interface{})
@@ -142,4 +144,24 @@ func calculateDiff(
 			diffResult[k] = formatter(oldProp, newProp)
 		}
 	}
+}
+
+func allKeys(a map[string]interface{}, b map[string]interface{}) []string {
+	keyMap := map[string]bool{}
+
+	for k := range a {
+		keyMap[k] = true
+	}
+
+	for k := range b {
+		keyMap[k] = true
+	}
+
+	var keys []string
+
+	for k := range keyMap {
+		keys = append(keys, k)
+	}
+
+	return keys
 }
