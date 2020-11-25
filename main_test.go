@@ -288,3 +288,41 @@ func TestDifferentKeys(t *testing.T) {
 		t.Error("invalid diff")
 	}
 }
+
+func TestArrayOfObjects_NoChange(t *testing.T) {
+	type List struct {
+		Items []*Entity
+	}
+
+	a := List{ Items: []*Entity{{ID: 1}}}
+	b := List{ Items: []*Entity{{ID: 1}}}
+
+	diff, err := DiffOldNew(a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(diff) != `{}` {
+		t.Error(string(diff))
+		t.Error("invalid diff")
+	}
+}
+
+func TestArrayOfObjects_HasChange(t *testing.T) {
+	type List struct {
+		Items []*Entity
+	}
+
+	a := List{ Items: []*Entity{{ID: 1}}}
+	b := List{ Items: []*Entity{{ID: 2}}}
+
+	diff, err := DiffOldNew(a, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(diff) != `{"Items":{"New":[{"ID":2,"Name":"","Relation":null}],"Old":[{"ID":1,"Name":"","Relation":null}]}}` {
+		t.Error(string(diff))
+		t.Error("invalid diff")
+	}
+}

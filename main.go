@@ -106,46 +106,62 @@ func calculateDiff(
 			continue
 		}
 
-		arrOld, oldIsArr := oldProp.([]interface{})
-		arrNew, newIsArr := newProp.([]interface{})
-
-		// one is an array, the other is not, must be a change
-		if oldIsArr != newIsArr {
-			diffResult[k] = formatter(oldProp, newProp)
-			continue
-		}
-
-		// both are arrays, let's dive in
-		if oldIsArr && newIsArr {
-			// lengths don't match, must be a change
-			if len(arrOld) != len(arrNew) {
-				diffResult[k] = formatter(oldProp, newProp)
-				continue
-			}
-
-			different := false
-
-			for i := 0; i < len(arrOld); i++ {
-				if arrOld[i] != arrNew[i] {
-					different = true
-					break
-				}
-			}
-
-			if different {
-				diffResult[k] = formatter(oldProp, newProp)
-			}
-
-			continue
-		}
-
-		// regular value comparison (non-map values)
-		if newProp != oldProp {
+		// use deepEquals to determine equality b/c we don't dive into array-diffing
+		// we just show the entire array as changed
+		if !deepEquals(oldProp, newProp) {
 			diffResult[k] = formatter(oldProp, newProp)
 		}
 	}
 }
 
+func deepEquals(a interface{}, b interface{}) bool {
+	mpA, aIsMap := a.(map[string]interface{})
+	mpB, bIsMap := b.(map[string]interface{})
+
+	// one is a map, the other is not, must be a change
+	if aIsMap != bIsMap {
+		return false
+	}
+
+	// both are maps, check if entries match
+	if aIsMap && bIsMap {
+		for _, k := range allKeys(mpA, mpB) {
+			if !deepEquals(mpA[k], mpB[k]) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	arrA, aIsArr := a.([]interface{})
+	arrB, bIsArr := b.([]interface{})
+
+	// one is an array, the other isn't, must be change
+	if aIsArr != bIsArr {
+		return false
+	}
+
+	// both are arrays, check if entries match
+	if aIsArr && bIsArr {
+		if len(arrA) != len(arrB) {
+			return false
+		}
+
+		for i := 0; i < len(arrB); i++ {
+			if !deepEquals(arrA[i], arrB[i]) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	// primitive comparison
+	return a == b
+}
+
+// allKeys returns the combined keys of a & b (without duplicates)
 func allKeys(a map[string]interface{}, b map[string]interface{}) []string {
 	keyMap := map[string]bool{}
 
