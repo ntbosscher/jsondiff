@@ -8,31 +8,33 @@ import (
 type ExampleEntity struct {
 	ID       int
 	Name     string
-	List []int
+	List     []int
 	Relation *ExampleEntity
+	Ignored  string `jsondiff:"-"`
 }
 
 func Example_Diff() {
 	A := &ExampleEntity{
 		ID:   1,
 		Name: "John",
-		List: []int{3,2,1},
+		List: []int{3, 2, 1},
 		Relation: &ExampleEntity{
 			ID:   3,
 			Name: "Ken",
 		},
+		Ignored: "00000",
 	}
 
 	B := &ExampleEntity{
 		ID:   2,
 		Name: "John",
-		List: []int{1,2,3},
+		List: []int{1, 2, 3},
 		Relation: &ExampleEntity{
 			ID:   2,
 			Name: "asdf",
 		},
+		Ignored: "11111",
 	}
-
 
 	diff, _ := Diff(A, B)
 	fmt.Println(string(diff))
@@ -43,7 +45,7 @@ func Example_DiffOldNew() {
 	A := &ExampleEntity{
 		ID:   1,
 		Name: "John",
-		List: []int{3,2,1},
+		List: []int{3, 2, 1},
 		Relation: &ExampleEntity{
 			ID:   3,
 			Name: "Ken",
@@ -53,7 +55,7 @@ func Example_DiffOldNew() {
 	B := &ExampleEntity{
 		ID:   2,
 		Name: "John",
-		List: []int{1,2,3},
+		List: []int{1, 2, 3},
 		Relation: &ExampleEntity{
 			ID:   2,
 			Name: "asdf",
@@ -69,7 +71,7 @@ func Example_DiffFormat() {
 	A := &ExampleEntity{
 		ID:   1,
 		Name: "John",
-		List: []int{3,2,1},
+		List: []int{3, 2, 1},
 		Relation: &ExampleEntity{
 			ID:   3,
 			Name: "Ken",
@@ -79,7 +81,7 @@ func Example_DiffFormat() {
 	B := &ExampleEntity{
 		ID:   2,
 		Name: "John",
-		List: []int{1,2,3},
+		List: []int{1, 2, 3},
 		Relation: &ExampleEntity{
 			ID:   2,
 			Name: "asdf",
@@ -95,6 +97,7 @@ type Entity struct {
 	ID       int
 	Name     string
 	Relation *Entity
+	Ignored  string `jsondiff:"-"`
 }
 
 func TestSimpleDiff(t *testing.T) {
@@ -102,6 +105,7 @@ func TestSimpleDiff(t *testing.T) {
 		ID:       1,
 		Name:     "asdf",
 		Relation: nil,
+		Ignored:  "0000",
 	}
 
 	b := &Entity{
@@ -112,6 +116,7 @@ func TestSimpleDiff(t *testing.T) {
 			Name:     "asdf",
 			Relation: nil,
 		},
+		Ignored: "1111",
 	}
 
 	diff, err := Diff(a, b)
@@ -120,7 +125,7 @@ func TestSimpleDiff(t *testing.T) {
 	}
 
 	if string(diff) != `{"ID":2,"Relation":{"ID":2,"Name":"asdf","Relation":null}}` {
-		t.Error("unexpected diff")
+		t.Error("unexpected diff", string(diff))
 	}
 }
 
@@ -132,7 +137,9 @@ func TestNestedDiffNoChange(t *testing.T) {
 			ID:       2,
 			Name:     "asdf",
 			Relation: nil,
+			Ignored:  "0000",
 		},
+		Ignored: "0000",
 	}
 
 	b := &Entity{
@@ -142,7 +149,9 @@ func TestNestedDiffNoChange(t *testing.T) {
 			ID:       2,
 			Name:     "asdf",
 			Relation: nil,
+			Ignored:  "1111",
 		},
+		Ignored: "1111",
 	}
 
 	diff, err := Diff(a, b)
@@ -164,6 +173,7 @@ func TestNestedDiffNestedChange(t *testing.T) {
 			Name:     "asdf",
 			Relation: nil,
 		},
+		Ignored: "0000",
 	}
 
 	b := &Entity{
@@ -174,6 +184,7 @@ func TestNestedDiffNestedChange(t *testing.T) {
 			Name:     "asdf",
 			Relation: nil,
 		},
+		Ignored: "1111",
 	}
 
 	diff, err := Diff(a, b)
@@ -195,6 +206,7 @@ func TestFormatBoth(t *testing.T) {
 			Name:     "asdf",
 			Relation: nil,
 		},
+		Ignored: "0000",
 	}
 
 	b := &Entity{
@@ -205,6 +217,7 @@ func TestFormatBoth(t *testing.T) {
 			Name:     "asdf",
 			Relation: nil,
 		},
+		Ignored: "1111",
 	}
 
 	diff, err := DiffFormat(a, b, BothValuesAsMapFormat)
@@ -220,18 +233,18 @@ func TestFormatBoth(t *testing.T) {
 
 func TestArrayNoChange(t *testing.T) {
 	type EntityWithArray struct {
-		ID int
+		ID   int
 		List []int
 	}
 
 	a := &EntityWithArray{
 		ID:   2,
-		List: []int{1,2},
+		List: []int{1, 2},
 	}
 
 	b := &EntityWithArray{
 		ID:   2,
-		List: []int{1,2},
+		List: []int{1, 2},
 	}
 
 	diff, err := DiffFormat(a, b, BothValuesAsMapFormat)
@@ -247,18 +260,18 @@ func TestArrayNoChange(t *testing.T) {
 
 func TestArrayChanged(t *testing.T) {
 	type EntityWithArray struct {
-		ID int
+		ID   int
 		List []int
 	}
 
 	a := &EntityWithArray{
 		ID:   2,
-		List: []int{1,2},
+		List: []int{1, 2},
 	}
 
 	b := &EntityWithArray{
 		ID:   2,
-		List: []int{1,2,3},
+		List: []int{1, 2, 3},
 	}
 
 	diff, err := DiffFormat(a, b, BothValuesAsMapFormat)
@@ -294,8 +307,8 @@ func TestArrayOfObjects_NoChange(t *testing.T) {
 		Items []*Entity
 	}
 
-	a := List{ Items: []*Entity{{ID: 1}}}
-	b := List{ Items: []*Entity{{ID: 1}}}
+	a := List{Items: []*Entity{{ID: 1}}}
+	b := List{Items: []*Entity{{ID: 1}}}
 
 	diff, err := DiffOldNew(a, b)
 	if err != nil {
@@ -313,8 +326,8 @@ func TestArrayOfObjects_HasChange(t *testing.T) {
 		Items []*Entity
 	}
 
-	a := List{ Items: []*Entity{{ID: 1}}}
-	b := List{ Items: []*Entity{{ID: 2}}}
+	a := List{Items: []*Entity{{ID: 1}}}
+	b := List{Items: []*Entity{{ID: 2}}}
 
 	diff, err := DiffOldNew(a, b)
 	if err != nil {

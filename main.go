@@ -2,6 +2,8 @@ package jsondiff
 
 import (
 	"encoding/json"
+	"errors"
+	"reflect"
 )
 
 // Diff compares oldValue with newValue and returns a json tree of
@@ -41,7 +43,53 @@ func DiffOldNew(oldValue interface{}, newValue interface{}) (json.RawMessage, er
 // oldValue & newValue will always be non-struct types
 type Formatter func(oldValue interface{}, newValue interface{}) (outputValue interface{})
 
+func getIgnoredKeys(typ reflect.Type, baseAddr []string, maxDepth int) [][]string {
+	addrs := [][]string{}
+
+	if maxDepth == 0 {
+		return addrs
+	}
+
+	if typ.Kind() == reflect.Map {
+		return addrs
+	}
+
+	for i := 0; i < typ.NumField(); i++ {
+		tg := typ.Field(i).Tag.Get("jsondiff")
+		if tg == "-" {
+			addrs = append(addrs, append(baseAddr, typ.Field(i).Name))
+		}
+
+		child := baseType(typ.Field(i).Type)
+		if child.Kind() == reflect.Struct {
+			add := getIgnoredKeys(child, append(baseAddr, typ.Field(i).Name), maxDepth-1)
+			addrs = append(addrs, add...)
+		}
+	}
+
+	return addrs
+}
+
+func baseType(typ reflect.Type) reflect.Type {
+	for typ.Kind() == reflect.Ptr || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Array {
+		typ = typ.Elem()
+	}
+
+	return typ
+}
+
 func DiffFormat(oldValue interface{}, newValue interface{}, formatter Formatter) (json.RawMessage, error) {
+	typ := reflect.TypeOf(oldValue)
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+
+	if typ.Kind() != reflect.Struct && typ.Kind() != reflect.Map {
+		return nil, errors.New("jsondiff only supports structs (and pointers to structs)")
+	}
+
+	ignoreAddrs := getIgnoredKeys(typ, nil, 10)
+
 	jsonOld, err := json.Marshal(oldValue)
 	if err != nil {
 		return nil, err
@@ -63,7 +111,7 @@ func DiffFormat(oldValue interface{}, newValue interface{}, formatter Formatter)
 	}
 
 	diff := map[string]interface{}{}
-	calculateDiff(diff, oldMap, newMap, formatter)
+	calculateDiff(diff, oldMap, newMap, formatter, nil, ignoreAddrs)
 
 	return json.Marshal(diff)
 }
@@ -75,10 +123,16 @@ func calculateDiff(
 	oldMap map[string]interface{},
 	newMap map[string]interface{},
 	formatter Formatter,
+	addr []string,
+	ignoreAddrs [][]string,
 ) {
 
 	// iterate over keys
 	for _, k := range allKeys(oldMap, newMap) {
+		if containsAddr(ignoreAddrs, append(addr, k)) {
+			delete(diffResult, k)
+			continue
+		}
 
 		newProp := newMap[k]
 		oldProp := oldMap[k]
@@ -89,14 +143,14 @@ func calculateDiff(
 
 		// one is a map, the other is not, must be a change
 		if oldIsMap != newIsMap {
-			diffResult[k] = formatter(oldProp, newProp)
+			diffResult[k] = formatter(wrapJson(oldProp, append(addr, k), ignoreAddrs), wrapJson(newProp, append(addr, k), ignoreAddrs))
 			continue
 		}
 
 		// both are maps, check subkeys for changes
 		if oldIsMap && newIsMap {
 			subResult := map[string]interface{}{}
-			calculateDiff(subResult, mpOld, mpNew, formatter)
+			calculateDiff(subResult, mpOld, mpNew, formatter, append(addr, k), ignoreAddrs)
 
 			// has subkey differences, add to diff
 			if len(subResult) > 0 {
@@ -109,9 +163,74 @@ func calculateDiff(
 		// use deepEquals to determine equality b/c we don't dive into array-diffing
 		// we just show the entire array as changed
 		if !deepEquals(oldProp, newProp) {
-			diffResult[k] = formatter(oldProp, newProp)
+			diffResult[k] = formatter(wrapJson(oldProp, append(addr, k), ignoreAddrs), wrapJson(newProp, append(addr, k), ignoreAddrs))
 		}
 	}
+}
+
+func wrapJson(value interface{}, currentAddr []string, ignoreAddrs [][]string) interface{} {
+	if value == nil {
+		return value
+	}
+
+	mp, ok := value.(map[string]interface{})
+	if !ok {
+
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Array:
+			list := []interface{}{}
+
+			arr := reflect.ValueOf(value)
+			for i := 0; i < arr.Len(); i++ {
+				list = append(list, wrapJson(arr.Index(i).Interface(), currentAddr, ignoreAddrs))
+			}
+
+			return list
+		}
+
+		return value
+	}
+
+	keysToRemove := []string{}
+	for k := range mp {
+		if containsAddr(ignoreAddrs, append(currentAddr, k)) {
+			keysToRemove = append(keysToRemove, k)
+		}
+	}
+
+	for _, k := range keysToRemove {
+		delete(mp, k)
+	}
+
+	for k, v := range mp {
+		mp[k] = wrapJson(v, append(currentAddr, k), ignoreAddrs)
+	}
+
+	return mp
+}
+
+func containsAddr(addrs [][]string, test []string) bool {
+	for _, addr := range addrs {
+		if equalsAddr(test, addr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func equalsAddr(test []string, prefix []string) bool {
+	if len(prefix) != len(test) {
+		return false
+	}
+
+	for i := 0; i < len(prefix); i++ {
+		if test[i] != prefix[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func deepEquals(a interface{}, b interface{}) bool {
